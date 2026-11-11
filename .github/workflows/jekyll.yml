@@ -1,64 +1,51 @@
-name: Build and Deploy Jekyll site
-
+name: Build and Deploy Jekyll
 on:
   push:
     branches: ["master"]
   workflow_dispatch:
-
+    inputs:
+      deploy:
+        description: 'Deploy to GitHub Pages (enable Pages with GitHub Actions source first)'
+        type: boolean
+        default: false
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: "pages"
   cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-24.04
-    outputs:
-      pages_enabled: ${{ steps.check_pages.outputs.enabled }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7
-        with:
-          node-version: '24'
+        with: {node-version: '24'}
       - uses: ruby/setup-ruby@v1.328.0
-        with:
-          ruby-version: '3.1'
-          bundler-cache: true
-          cache-version: 0
+        with: {ruby-version: '3.1', bundler-cache: true, cache-version: 0}
       - name: Install UglifyJS
         run: npm install -g uglify-js
       - name: Minify JS
         run: uglifyjs assets/js/plugins/jquery.greedy-navigation.js assets/js/_main.js assets/js/theme.js -c -m -o assets/js/main.min.js
-      - name: Check if GitHub Pages is enabled
-        id: check_pages
-        run: echo "enabled=false" >> "$GITHUB_OUTPUT"
       - name: Configure GitHub Pages
-        if: steps.check_pages.outputs.enabled == 'true'
+        if: inputs.deploy
         id: pages
         uses: actions/configure-pages@v6.0.0
       - name: Build with Jekyll
         run: bundle exec jekyll build
-        env:
-          JEKYLL_ENV: production
+        env: {JEKYLL_ENV: production}
       - name: Upload Pages artifact
-        if: steps.check_pages.outputs.enabled == 'true'
+        if: inputs.deploy
         uses: actions/upload-pages-artifact@v5.0.0
-        with:
-          path: _site
+        with: {path: _site}
       - name: Upload built site artifact
-        if: steps.check_pages.outputs.enabled != 'true'
+        if: ${{ !inputs.deploy }}
         uses: actions/upload-artifact@v4
-        with:
-          name: jekyll-site
-          path: _site
-
+        with: {name: jekyll-site, path: _site}
   deploy:
     needs: build
-    if: needs.build.outputs.pages_enabled == 'true'
+    if: inputs.deploy
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
