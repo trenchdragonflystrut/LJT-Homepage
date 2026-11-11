@@ -1,52 +1,69 @@
-# Workflow for building the Jekyll site.
-# To publish the site, enable GitHub Pages once in the repository settings
-# (Settings > Pages > Source: GitHub Actions); the built site is uploaded as
-# a workflow artifact on every run regardless.
-name: Build Jekyll site
+name: Build and Deploy Jekyll site
 
 on:
-  # Runs on pushes targeting the default branch
   push:
     branches: ["master"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: "jekyll-build"
+  group: "pages"
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    outputs:
+      pages_enabled: ${{ steps.check_pages.outputs.enabled }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7.0.1
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - name: Setup Ruby, JRuby and TruffleRuby
-        uses: ruby/setup-ruby@v1.328.0
+      - uses: ruby/setup-ruby@v1.328.0
         with:
           ruby-version: '3.1'
           bundler-cache: true
           cache-version: 0
       - name: Install UglifyJS
         run: npm install -g uglify-js
-      - name: Minify JS files
-        run: |
-          uglifyjs assets/js/plugins/jquery.greedy-navigation.js assets/js/_main.js assets/js/theme.js -c -m -o assets/js/main.min.js
+      - name: Minify JS
+        run: uglifyjs assets/js/plugins/jquery.greedy-navigation.js assets/js/_main.js assets/js/theme.js -c -m -o assets/js/main.min.js
+      - name: Check if GitHub Pages is enabled
+        id: check_pages
+        run: echo "enabled=false" >> "$GITHUB_OUTPUT"
+      - name: Configure GitHub Pages
+        if: steps.check_pages.outputs.enabled == 'true'
+        id: pages
+        uses: actions/configure-pages@v6.0.0
       - name: Build with Jekyll
-        # Outputs to the './_site' directory by default, using baseurl from _config.yml
         run: bundle exec jekyll build
         env:
           JEKYLL_ENV: production
+      - name: Upload Pages artifact
+        if: steps.check_pages.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: _site
       - name: Upload built site artifact
+        if: steps.check_pages.outputs.enabled != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: jekyll-site
           path: _site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.pages_enabled == 'true'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
