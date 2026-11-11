@@ -16,4 +16,9 @@ bundle exec jekyll serve
 
 ## Deployment
 
-The site is configured as a project page (`url: https://trenchdragonflystrut.github.io`, `baseurl: /LJT-Homepage` in `_config.yml`). To publish it, enable GitHub Pages in **Settings → Pages → Source: GitHub Actions**. The workflow in `.github/workflows/jekyll.yml` builds the site on every push to `master` and uploads the built site as a workflow artifact.
+The site is configured as a project page (`url: https://trenchdragonflystrut.github.io`, `baseurl: /LJT-Homepage` in `_config.yml`). The `Build and Deploy Jekyll` workflow builds the site on every push to `master` and uploads the built site as a workflow artifact.
+
+To publish it on GitHub Pages:
+
+1. In the repository **Settings → Pages**, set **Source** to **GitHub Actions**.
+2. In the **Actions** tab, run the **Build and Deploy Jekyll** workflow manually with the **deploy** option checked.
